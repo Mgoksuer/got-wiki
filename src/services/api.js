@@ -100,4 +100,29 @@ export async function getResourceByUrl(url) {
   return fetchWithHandling(url);
 }
 
+let allCharactersCache = null;
+
+export async function searchAllCharacters(query) {
+  if (!allCharactersCache) {
+    const promises = [];
+    // There are 43 pages in the API for characters with pageSize=50
+    for (let i = 1; i <= 43; i++) {
+      promises.push(
+        fetch(`${BASE_URL}/characters?page=${i}&pageSize=50`)
+          .then((r) => (r.ok ? r.json() : []))
+          .catch(() => [])
+      );
+    }
+    const results = await Promise.all(promises);
+    allCharactersCache = results.flat();
+  }
+  
+  const q = query.toLowerCase();
+  return allCharactersCache.filter((c) => {
+    const name = (c.name || '').toLowerCase();
+    const aliases = (c.aliases || []).join(' ').toLowerCase();
+    return name.includes(q) || aliases.includes(q);
+  });
+}
+
 export { extractId };

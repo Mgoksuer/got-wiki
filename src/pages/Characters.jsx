@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { getCharacters, extractId, getResourceByUrl } from '../services/api';
+import { getCharacters, extractId, getResourceByUrl, searchAllCharacters } from '../services/api';
 import { getCharacterImage, getCharacterDescription, getInitials } from '../services/images';
 import { useTheme } from '../context/ThemeContext';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -73,32 +73,23 @@ function Characters() {
     setSearching(true);
     setError(null);
 
-    const fetchPages = [];
-    for (let p = 1; p <= 5; p++) {
-      fetchPages.push(
-        fetch(`https://anapioficeandfire.com/api/characters?pageSize=50&page=${p}`)
-          .then((r) => r.json())
-          .catch(() => [])
-      );
-    }
-
-    Promise.all(fetchPages).then((pages) => {
-      const all = pages.flat();
-      const q = query.toLowerCase();
-      const matches = all.filter((c) => {
-        const name = (c.name || '').toLowerCase();
-        const aliases = (c.aliases || []).join(' ').toLowerCase();
-        return name.includes(q) || aliases.includes(q);
+    searchAllCharacters(query)
+      .then((matches) => {
+        matches.sort((a, b) => {
+          const nameA = a.name || a.aliases?.[0] || '';
+          const nameB = b.name || b.aliases?.[0] || '';
+          return nameA.localeCompare(nameB);
+        });
+        setSearchResults(matches);
+        resolveParentNames(matches);
+      })
+      .catch((err) => {
+        console.error("Search error:", err);
+        setSearchResults([]);
+      })
+      .finally(() => {
+        setSearching(false);
       });
-      matches.sort((a, b) => {
-        const nameA = a.name || a.aliases?.[0] || '';
-        const nameB = b.name || b.aliases?.[0] || '';
-        return nameA.localeCompare(nameB);
-      });
-      setSearchResults(matches);
-      setSearching(false);
-      resolveParentNames(matches);
-    });
   }, [resolveParentNames]);
 
   useEffect(() => {
